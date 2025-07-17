@@ -1,0 +1,64 @@
+#define ENCODER_DO_NOT_USE_INTERRUPTS
+#include "Encoder.h"
+#include <util/atomic.h>
+
+// constants won't change
+const int ENA_PIN = 8, IN1_PIN = 32, IN2_PIN = 33, ENC_A = 47, ENC_B = 49, FLAG_EX = 25, FLAG_HOME = 24 ; // Arduino PINS
+float newPos = 0;
+long startTime;
+
+Encoder myEnc(ENC_A, ENC_B);
+
+void setup() {
+  pinMode(ENA_PIN, OUTPUT);
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+  Serial.begin(230400);
+  delay(1000);
+}
+
+void stopMotor() {
+  digitalWrite(IN1_PIN, LOW);
+  digitalWrite(IN2_PIN, LOW);
+  analogWrite(ENA_PIN, 0);
+  delay(1000);
+  }
+
+void loop(){
+//EX
+  digitalWrite(IN1_PIN, HIGH); //Motor moves EX
+  digitalWrite(IN2_PIN, LOW); //Motor moves EX
+  analogWrite(ENA_PIN, 100); // 0-255
+
+  startTime = millis();
+  while (millis() - startTime < 1000){
+
+  newPos = myEnc.read();
+  }
+
+  delay(1000);
+  stopMotor();
+
+  Serial.print(" EX Direction: ");
+  Serial.println(newPos);
+  //delay(1000); // Pause before reversing
+
+//HOME
+  digitalWrite(IN1_PIN, LOW); //Motor moves HOME
+  digitalWrite(IN2_PIN, HIGH); //Motor moves HOME
+  analogWrite(ENA_PIN, 100); // 0-255
+
+  startTime = millis();
+  while (millis() - startTime < 1000){
+
+  newPos = myEnc.read(); 
+  }
+
+  delay(1000); // 1 second outward
+  stopMotor();
+
+  Serial.print(" EX Direction: ");
+  Serial.println(newPos);
+  //delay(1000); // Pause before next loop
+
+}
