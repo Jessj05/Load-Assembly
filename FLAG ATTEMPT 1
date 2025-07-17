@@ -1,0 +1,86 @@
+#define ENCODER_DO_NOT_USE_INTERRUPTS
+#include "Encoder.h"
+#include <util/atomic.h>
+
+// constants won't change
+const int ENA_PIN = 8, IN1_PIN = 32, IN2_PIN = 33, ENC_A = 47, ENC_B = 49, FLAG_EX = 25, FLAG_HOME = 24 ; // Arduino PINS
+volatile int newPos = 0;
+long userInput;
+
+Encoder myEnc(ENC_A, ENC_B);
+
+// the setup function runs once when you press reset or power the board
+void setup() {
+  // initialize digital pins as outputs.
+  pinMode(ENA_PIN, OUTPUT);
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+  pinMode(FLAG_EX, INPUT_PULLUP);
+  pinMode(FLAG_HOME, INPUT_PULLUP);
+
+
+  Serial.begin(9600);
+  
+  while(!Serial);
+}
+
+void loop() {
+newPos = myEnc.read(); //Update Position
+//FLAG LOC
+
+  Serial.print("FLAG_EX: ");
+  Serial.print(digitalRead(FLAG_EX));
+  Serial.print(" | FLAG_HOME: ");
+  Serial.print(digitalRead(FLAG_HOME));
+  Serial.print(" | Position: ");
+  Serial.println(newPos);
+  delay(200); // Delay so Serial doesn't spam too fast
+
+//IF AT EX, MOVE HOME
+  if (digitalRead(FLAG_HOME) == HIGH) {
+    stopMotor();
+    delay(300);
+    while (digitalRead(FLAG_EX) == LOW) {
+      moveBackward();
+      newPos = myEnc.read();
+      Serial.print(" Backward to HOME Position  ");
+      Serial.println(newPos);
+    }
+    stopMotor();
+    myEnc.write(0); // Reset encoder at home
+    delay(300);
+  }
+  
+  //IF AT HOME< MOVE EX
+  if(digitalRead(FLAG_EX) == LOW){
+    stopMotor();
+    delay(300);
+    while (digitalRead(FLAG_HOME) == HIGH) {
+      moveForward();
+      newPos = myEnc.read();
+      Serial.print(" Forward to EX Position  ");
+      Serial.println(newPos);
+    }
+    stopMotor();
+    myEnc.write(0);
+    delay(300);
+  }
+}
+
+  //Motor Controls
+  void moveForward() {
+    digitalWrite(IN1_PIN, HIGH); // control motor A spins IN
+    digitalWrite(IN2_PIN, LOW);  // control motor A spins IN
+    analogWrite(ENA_PIN, 50); // 0-255
+  }
+
+  void moveBackward(){
+    digitalWrite(IN1_PIN, LOW);   // control motor A spins OUT
+    digitalWrite(IN2_PIN, HIGH);  // control motor A spins OUT
+    analogWrite(ENA_PIN, 50); // 0-255
+  }
+  void stopMotor(){
+    digitalWrite(IN1_PIN, LOW);   // control motor A STOPS
+    digitalWrite(IN2_PIN, LOW);  // control motor A STOPPS
+    analogWrite(ENA_PIN, 0);
+  }
