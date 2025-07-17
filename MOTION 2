@@ -40,7 +40,7 @@ void loop(){
   delay(1000);
   stopMotor();
 
-  Serial.print(" EX Direction: ");
+  Serial.print(" EX: ");
   Serial.println(newPos);
   //delay(1000); // Pause before reversing
 
@@ -58,7 +58,7 @@ void loop(){
   delay(1000); // 1 second outward
   stopMotor();
 
-  Serial.print(" HOME Direction: ");
+  Serial.print(" HOME: ");
   Serial.println(newPos);
   //delay(1000); // Pause before next loop
 
