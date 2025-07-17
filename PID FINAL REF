@@ -1,11 +1,3 @@
-/*
- * Created by ArduinoGetStarted.com
- *
- * This example code is in the public domain
- *
- * Tutorial page: https://arduinogetstarted.com/tutorials/arduino-dc-motor
- */
-
 #include "Encoder.h"
 
 // constants won't change
