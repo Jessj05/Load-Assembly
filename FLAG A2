@@ -45,7 +45,7 @@ void moveEX(){
   
   digitalWrite(IN1_PIN, HIGH); //Motor moves EX
   digitalWrite(IN2_PIN, LOW); //Motor moves EX
-  analogWrite(ENA_PIN, 150); // 0-255
+  analogWrite(ENA_PIN, 100); // 0-255
 
   while (true) {
   newPos = myEnc.read();
@@ -65,7 +65,7 @@ void moveHOME(){
   
   digitalWrite(IN1_PIN, LOW); //Motor moves HOME
   digitalWrite(IN2_PIN, HIGH); //Motor moves HOME
-  analogWrite(ENA_PIN, 150); // 0-255
+  analogWrite(ENA_PIN, 100); // 0-255
 
   while (true) {
   newPos = myEnc.read();
