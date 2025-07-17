@@ -1,0 +1,93 @@
+//#define ENCODER_DO_NOT_USE_INTERRUPTS
+#include "Encoder.h"
+#include <util/atomic.h>
+
+// constants won't change
+const int ENA_PIN = 8, IN1_PIN = 32, IN2_PIN = 33;
+const int ENC_A = 47, ENC_B = 49; 
+
+const int FLAG_EX = 25; //HOME Limit Switch pin
+const int FLAG_HOME = 24; //EX Limit Switch pin
+
+const long LIMIT_HOME = 0; //HOME Limit
+const long LIMIT_EX = 15530; //EX Limit
+
+float newPos = 0;
+long startTime;
+
+Encoder myEnc(ENC_A, ENC_B);
+
+void setup() {
+  Serial.begin(230400);
+  delay(1000); 
+
+  pinMode(ENA_PIN, OUTPUT);
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+
+  pinMode(FLAG_EX, INPUT_PULLUP);
+  pinMode(FLAG_HOME, INPUT_PULLUP);
+
+  Serial.print("FLAG_HOME: ");
+  Serial.println(digitalRead(FLAG_HOME));
+  Serial.print("FLAG_EX: ");
+  Serial.println(digitalRead(FLAG_EX));
+}
+
+void stopMotor() {
+  digitalWrite(IN1_PIN, LOW);
+  digitalWrite(IN2_PIN, LOW);
+  analogWrite(ENA_PIN, 0);
+  delay(1000);
+  }
+
+void moveEX(){
+  
+  digitalWrite(IN1_PIN, HIGH); //Motor moves EX
+  digitalWrite(IN2_PIN, LOW); //Motor moves EX
+  analogWrite(ENA_PIN, 150); // 0-255
+
+  while (true) {
+  newPos = myEnc.read();
+  Serial.print("EX: ");
+  Serial.println(newPos);
+  delay(100);
+
+  if (digitalRead(FLAG_EX) == HIGH || newPos >= LIMIT_EX) {
+    Serial.println("Arrived EX limit Flag");
+    stopMotor();
+    break;
+    }
+  }
+}
+
+void moveHOME(){
+  
+  digitalWrite(IN1_PIN, LOW); //Motor moves HOME
+  digitalWrite(IN2_PIN, HIGH); //Motor moves HOME
+  analogWrite(ENA_PIN, 150); // 0-255
+
+  while (true) {
+  newPos = myEnc.read();
+  Serial.print("HOME: ");
+  Serial.println(newPos);
+  delay(100);
+
+    if (digitalRead(FLAG_HOME) == HIGH || newPos <= LIMIT_HOME) {
+      Serial.println("Arrived HOME limit Flag");
+      stopMotor();
+      break;
+      }
+    }
+    // Set HOME as 0 after move
+  myEnc.write(0);
+  Serial.println("HOME position set to 0");
+}
+
+void loop() {
+  moveEX();
+  delay(1000);
+  moveHOME();
+  delay(1000);
+  while (1); // Stop after one round trip
+}
