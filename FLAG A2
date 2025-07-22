@@ -1,4 +1,4 @@
-//#define ENCODER_DO_NOT_USE_INTERRUPTS
+//#define ENCODER_DO_NOT_USE_INTERRUPTS 
 #include "Encoder.h"
 #include <util/atomic.h>
 
@@ -12,7 +12,7 @@ const int FLAG_HOME = 24; //EX Limit Switch pin
 const long LIMIT_HOME = 0; //HOME Limit
 const long LIMIT_EX = 15530; //EX Limit
 
-float newPos = 0;
+long newPos = 0; 
 long startTime;
 
 Encoder myEnc(ENC_A, ENC_B);
@@ -24,7 +24,6 @@ void setup() {
   pinMode(ENA_PIN, OUTPUT);
   pinMode(IN1_PIN, OUTPUT);
   pinMode(IN2_PIN, OUTPUT);
-
   pinMode(FLAG_EX, INPUT_PULLUP);
   pinMode(FLAG_HOME, INPUT_PULLUP);
 
@@ -45,49 +44,54 @@ void moveEX(){
   
   digitalWrite(IN1_PIN, HIGH); //Motor moves EX
   digitalWrite(IN2_PIN, LOW); //Motor moves EX
-  analogWrite(ENA_PIN, 100); // 0-255
+  analogWrite(ENA_PIN, 125); // 0-255
 
   while (true) {
-  newPos = myEnc.read();
-  Serial.print("EX: ");
-  Serial.println(newPos);
-  delay(100);
-
-  if (digitalRead(FLAG_EX) == HIGH || newPos >= LIMIT_EX) {
-    Serial.println("Arrived EX limit Flag");
-    stopMotor();
-    break;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      newPos =  myEnc.read();
     }
-  }
+
+    if (digitalRead(FLAG_EX) == HIGH) { 
+      stopMotor();
+      delay(100);
+      Serial.println("Arrived HOME limit Flag");
+      Serial.println(myEnc.read());
+      break;
+      }
+   }
 }
 
 void moveHOME(){
   
   digitalWrite(IN1_PIN, LOW); //Motor moves HOME
   digitalWrite(IN2_PIN, HIGH); //Motor moves HOME
-  analogWrite(ENA_PIN, 100); // 0-255
+  analogWrite(ENA_PIN, 125); // 0-255
 
   while (true) {
-  newPos = myEnc.read();
-  Serial.print("HOME: ");
-  Serial.println(newPos);
-  delay(100);
-
-    if (digitalRead(FLAG_HOME) == HIGH || newPos <= LIMIT_HOME) {
-      Serial.println("Arrived HOME limit Flag");
-      stopMotor();
-      break;
-      }
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+      newPos = myEnc.read();
     }
-    // Set HOME as 0 after move
-  myEnc.write(0);
-  Serial.println("HOME position set to 0");
+
+      if (digitalRead(FLAG_HOME) == HIGH) { 
+        stopMotor();
+        delay(100);
+        Serial.println("Arrived HOME limit Flag");
+        Serial.println(myEnc.read());
+        break;
+        }
+    }
+
 }
 
 void loop() {
+  for (int i = 0; i < 3; i++){
+  Serial.println(myEnc.read());
   moveEX();
   delay(1000);
+
+  Serial.println(myEnc.read());
   moveHOME();
   delay(1000);
+  }
   while (1); // Stop after one round trip
 }
