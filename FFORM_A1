@@ -1,0 +1,196 @@
+//#define ENCODER_DO_NOT_USE_INTERRUPTS 
+#include "Encoder.h"
+#include "LibPrintf.h"
+#include <util/atomic.h>
+
+// constants won't change
+const int ENA_PIN = 8, IN1_PIN = 32, IN2_PIN = 33, ENC_A = 47, ENC_B = 49; 
+
+const int FLAG_EX = 25; //HOME Limit Switch pin
+const int FLAG_HOME = 24; //EX Limit Switch pin
+const long LIMIT_HOME = 0; //HOME Limit
+const long LIMIT_EX = 15530; //EX Limit
+
+long userInput;
+int pullup; 
+volatile int newPos = 0;
+float deltT = 10, u = 0, vmax = 2000, a = 3000; 
+float oldPos, dist, tolm, tolp, startT, setPoint;
+float t, ta, tb, totT;  
+float er, eri, ederiv, einteg, speed, x;  
+bool hasHomed = false;
+
+Encoder myEnc(ENC_A, ENC_B);
+
+//PID constants
+float kp = 2.0; // d Tr, i O, d Ts, d SSE lower
+float ki = 0.1; // d Tr, i O, i Ts, elim SSE higher
+float kd = 0.0; // sd Tr, d O, d Ts, N/A SSE lower
+
+void setup() {
+
+  pinMode(ENA_PIN, OUTPUT);
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+  pinMode(FLAG_EX, INPUT_PULLUP);
+  pinMode(FLAG_HOME, INPUT_PULLUP);
+
+  Serial.begin(230400);
+  delay(1000);
+  Serial.println("Enter Target Position");
+
+  while(!Serial); 
+}
+
+void loop () {
+
+  if (Serial.available()) {
+    userInput = Serial.parseInt();
+    userInput = constrain(userInput, LIMIT_HOME, LIMIT_EX);
+    Serial.print(" Target Pos: ");
+    Serial.print(userInput);
+    oldPos = myEnc.read();
+    Serial.print("   Current Pos: ");
+    Serial.println(oldPos);
+
+    dist = (float)(userInput - oldPos);
+
+    tolm = userInput - 5;
+    tolp = userInput + 5;
+
+    startT = micros();
+    vProf(dist);
+    setPoint = 0;
+
+
+    digitalWrite(IN1_PIN, HIGH); // control motor A stops
+    digitalWrite(IN2_PIN, HIGH);  // control motor A stops
+    analogWrite(ENA_PIN, 0); 
+
+    hasHomed = true; // after first successful move
+
+    delay(1000);
+    Serial.print(" Motor STOP");
+
+    if (digitalRead(FLAG_HOME) == HIGH) {
+      Serial.println(": HOME Flag");
+    }
+    if (digitalRead(FLAG_EX) == HIGH) {
+      Serial.println(": EX Flag");
+    }
+    
+    //Serial.print("Target Pos: ");
+    //Serial.print(userInput);
+    Serial.print("   Current Pos: ");
+    newPos = myEnc.read();
+    Serial.println(newPos);
+    /*Serial.print(kp); Serial.print(" ");
+    Serial.print(ki); Serial.print(" ");
+    Serial.println(kd); Serial.print(" ");*/
+
+    userInput = Serial.parseInt();
+    delay(1000);
+    Serial.println("Enter Target Position");
+  }
+
+}
+
+void vProf(float distance) {
+  oldPos = myEnc.read();
+  ta = (float)vmax / a;
+  totT = (abs(distance)*a + vmax*vmax) / (a*vmax);
+  tb = totT - 2*ta;
+  t = (float)(micros() - startT)/(1.0e6);
+
+  static unsigned long lastPrintTime = 0;
+
+  while ((abs(newPos - userInput) > 5) && t < 10){
+    newPos = myEnc.read();
+    if (t < ta) {
+      x = (0.5*a*t*t);
+    }
+    else if (t >= ta && t < ta + tb) {
+      x = (0.5*a*ta*ta + vmax*(t - ta));
+    }
+    else {
+      x = (0.5*a*ta*ta + vmax*tb + vmax*(t - ta - tb) - 0.5*a*(t - ta - tb)*(t - ta - tb));
+    }
+
+    t = (float)(micros() - startT)/(1.0e6); 
+    //newPos = myEnc.read();
+    oldPos = myEnc.read();
+
+    // FLAG LIMIT TRIGGERS
+    if (hasHomed && (digitalRead(FLAG_HOME) == LOW || digitalRead(FLAG_EX) == LOW)) {
+      digitalWrite(IN1_PIN, LOW);
+      digitalWrite(IN2_PIN, LOW);
+      analogWrite(ENA_PIN, 0);
+      return;
+    }
+
+    setPoint = (userInput > oldPos) ? oldPos + x : oldPos - x;
+
+    if (millis() - lastPrintTime >= 500) {
+      lastPrintTime = millis();
+      Serial.print(" Position: ");
+      Serial.println(newPos);
+    }
+
+    PIDcalc(setPoint);
+
+  }
+  
+  digitalWrite(IN1_PIN, LOW); // control motor A stops
+  digitalWrite(IN2_PIN, LOW);  // control motor A stops
+  analogWrite(ENA_PIN, 0);
+
+}
+
+void PIDcalc(float setpoint) {
+
+  newPos = myEnc.read();
+  er = setpoint - newPos;
+  ederiv = (er - eri) / deltT;
+  einteg = einteg + er * deltT;
+
+  u = kp*er + ki*einteg + kd*ederiv;
+
+  if (t < ta) {
+    speed = constrain(u, 30, 255);
+  }
+  else {
+    speed = constrain(u, 0, 255);
+  }
+  
+  analogWrite(ENA_PIN, speed);
+  motorMove(setpoint);
+
+  eri = er;
+  er = 0;
+  ederiv = 0;
+  einteg = 0;
+
+}
+
+void motorMove(float setpoint) {
+
+  newPos = (float) myEnc.read();
+
+  if (setpoint - newPos > 5) {
+    digitalWrite(IN1_PIN, HIGH); // control motor A spins clockwise
+    digitalWrite(IN2_PIN, LOW);  // control motor A spins clockwise
+  }
+
+  else if (setpoint - newPos < -5) {  
+    digitalWrite(IN1_PIN, LOW); // control motor A spins counterclockwise
+    digitalWrite(IN2_PIN, HIGH);  // control motor A spins counterclockwise
+
+  }
+
+  else {
+    digitalWrite(IN1_PIN, LOW); // control motor A stops
+    digitalWrite(IN2_PIN, LOW);  // control motor A stops
+
+  }
+
+}
