@@ -14,8 +14,8 @@ const long LIMIT_EX = 15530; //EX Limit
 long userInput;
 int pullup; 
 volatile int newPos = 0;
-float deltT = 10, u = 0, vmax = 2000, a = 3000; 
-float oldPos, dist, tolm, tolp, startT, setPoint;
+float deltT = 10, u = 0, vmax = 1750, a = 4000; 
+float oldPos, dist, tolm, tolp, startT, setPoint, oldPosStart;
 float t, ta, tb, totT;  
 float er, eri, ederiv, einteg, speed, x;  
 bool hasHomed = false;
@@ -23,9 +23,9 @@ bool hasHomed = false;
 Encoder myEnc(ENC_A, ENC_B);
 
 //PID constants
-float kp = 2.0; // d Tr, i O, d Ts, d SSE lower
-float ki = 0.1; // d Tr, i O, i Ts, elim SSE higher
-float kd = 0.0; // sd Tr, d O, d Ts, N/A SSE lower
+float kp = 3.0; // d Tr, i O, d Ts, d SSE lower
+float ki = 0.05; // d Tr, i O, i Ts, elim SSE higher
+float kd = 0.2; // sd Tr, d O, d Ts, N/A SSE lower
 
 void setup() {
 
@@ -52,13 +52,13 @@ void loop() {
 
       Serial.print(" Target Pos: ");
       Serial.print(userInput);
-      oldPos = myEnc.read();
+      oldPosStart = myEnc.read();
       Serial.print("   Current Pos: ");
-      Serial.println(oldPos);
+      Serial.println(oldPosStart);
 
-      dist = (float)(userInput - oldPos);
-      tolm = userInput - 5;
-      tolp = userInput + 5;
+      dist = (float)(userInput - oldPosStart);
+      tolm = userInput - 1;
+      tolp = userInput + 1;
 
       startT = micros();
       vProf(dist);
@@ -69,7 +69,7 @@ void loop() {
       analogWrite(ENA_PIN, 0);
 
       delay(1000);
-      Serial.print(" Motor STOP");
+      Serial.println(" Motor STOP");
 
       if (digitalRead(FLAG_HOME) == HIGH) {
         Serial.println(": HOME Flag");
@@ -78,11 +78,12 @@ void loop() {
         Serial.println(": EX Flag");
       }
 
+      Serial.print(" Target Pos: ");
+      Serial.print(userInput);
+      oldPosStart = myEnc.read();
       Serial.print("   Current Pos: ");
-      newPos = myEnc.read();
-      Serial.println(newPos);
+      Serial.println(oldPosStart);
 
-      // ⚠️ Flush newline characters from Serial buffer
       while (Serial.available()) Serial.read();
 
       Serial.println("Enter Target Position");
@@ -91,8 +92,6 @@ void loop() {
 }
 
 void vProf(float distance) {
-  oldPos = myEnc.read();
-  float oldPosStart = oldPos;
   ta = (float)vmax / a;
   totT = (abs(distance)*a + vmax*vmax) / (a*vmax);
   tb = totT - 2*ta;
@@ -100,7 +99,7 @@ void vProf(float distance) {
 
   static unsigned long lastPrintTime = 0;
 
-    while ((abs(newPos - userInput) > 5) && abs(setPoint - userInput) > 5 && t < 15){
+    while ((abs(newPos - userInput) > 1) && abs(setPoint - userInput) > 1 && t < 15){
     newPos = myEnc.read();
     if (t < ta) {
       x = (0.5*a*t*t);
@@ -113,7 +112,6 @@ void vProf(float distance) {
     }
 
     t = (float)(micros() - startT)/(1.0e6); 
-    oldPos = myEnc.read();
 
     // FLAG LIMIT TRIGGERS
     if (hasHomed && (digitalRead(FLAG_HOME) == LOW || digitalRead(FLAG_EX) == LOW)) {
@@ -129,6 +127,7 @@ void vProf(float distance) {
       lastPrintTime = millis();
       Serial.print(" Position: ");
       Serial.println(newPos);
+
     }
 
     PIDcalc(setPoint);
@@ -171,12 +170,12 @@ void motorMove(float setpoint) {
 
   newPos = (float) myEnc.read();
 
-  if (setpoint - newPos > 5) {
+  if (setpoint - newPos > 1) {
     digitalWrite(IN1_PIN, HIGH); // control motor A spins clockwise
     digitalWrite(IN2_PIN, LOW);  // control motor A spins clockwise
   }
 
-  else if (setpoint - newPos < -5) {  
+  else if (setpoint - newPos < -1) {  
     digitalWrite(IN1_PIN, LOW); // control motor A spins counterclockwise
     digitalWrite(IN2_PIN, HIGH);  // control motor A spins counterclockwise
 
