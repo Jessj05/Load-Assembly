@@ -4,9 +4,13 @@
 #include <util/atomic.h>
 
 // constants won't change
-const int PWM_PIN = 8, MOTOR_AMBIENT_IN = 32, MOTOR_AMBIENT_OUT = 33, LATERAL_AMBIENTLOAD_ENCPIN_A = 47, LATERAL_AMBIENTLOAD_ENCPIN_B = 49; 
+const int PWM_PIN = 8, MOTOR_AMBIENT_IN = 32;
+const int MOTOR_AMBIENT_OUT = 33;
+const int LATERAL_AMBIENTLOAD_ENCPIN_A = 47;
+const int LATERAL_AMBIENTLOAD_ENCPIN_B = 49; 
 const int FLAG_AMBIENT_IN = 25; //HOME Limit Switch pin
 const int FLAG_AMBIENT_OUT = 24; //EX Limit Switch pin
+
 const long LIMIT_HOME = 0; //HOME Limit
 const long LIMIT_EX = 15600; //EX Limit
 
@@ -59,9 +63,9 @@ userInput = constrain(temp, LIMIT_HOME, LIMIT_EX);
   vProf(dist);
   float endT = micros();
   float totalDurationSec = (endT - startT) / 1.0e6;
-  Serial.print("Time to target: ");
+  /*Serial.print("Time to target: ");
   Serial.print(totalDurationSec, 3);
-  Serial.println(" seconds");
+  Serial.println(" seconds");*/
   setPoint = 0;
 
   digitalWrite(MOTOR_AMBIENT_IN, HIGH);
@@ -69,7 +73,7 @@ userInput = constrain(temp, LIMIT_HOME, LIMIT_EX);
   analogWrite(PWM_PIN, 0);
 
   delay(1000);
-  Serial.println("Motor STOP");
+  //Serial.println("Motor STOP");
 
   if (digitalRead(FLAG_AMBIENT_OUT) == HIGH) {
     Serial.println("HOME Flag");
@@ -81,16 +85,19 @@ userInput = constrain(temp, LIMIT_HOME, LIMIT_EX);
   oldPosStart = myEnc.read();
   Serial.print(" Final Pos: ");
   Serial.print(oldPosStart);
-  Serial.print(" kp*e: ");
+  /*Serial.print(" kp*e: ");
   Serial.print(kp*er);
   Serial.print(" ki*e: ");
   Serial.print(ki*einteg);
   Serial.print(" kd*e: ");
   Serial.print(kd*ederiv);
   Serial.print(" speed: ");
-  Serial.println(speed);
-  Serial.print(" Target Pos: ");
+  Serial.println(speed);*/
+  Serial.print("  Target Pos: ");
   Serial.println(userInput);
+  Serial.print(" TOTAL TIME: ");
+  Serial.print(totalDurationSec, 3);
+  Serial.println(" seconds");
 
   while (Serial.available()) Serial.read();
 
@@ -167,16 +174,16 @@ void PIDcalc(float setpoint) {
   analogWrite(PWM_PIN, speed);
   motorMove(setpoint);
 
-  if (millis() - lastPrintTime >= 50) {
+  if (millis() - lastPrintTime >= 1000) {
     lastPrintTime = millis();
     Serial.print(" Position: ");
     Serial.print(newPos);
-    Serial.print(" kp*e: ");
+    /*Serial.print(" kp*e: ");
     Serial.print(kp*er);
     Serial.print(" ki*e: ");
     Serial.print(ki*einteg);
     Serial.print(" kd*e: ");
-    Serial.print(kd*ederiv);
+    Serial.print(kd*ederiv);*/
     Serial.print(" speed: ");
     Serial.println(speed);
 
@@ -210,4 +217,5 @@ void motorMove(float setpoint) {
 
   }
 
+}
 }
